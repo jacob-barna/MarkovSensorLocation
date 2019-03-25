@@ -13,6 +13,7 @@ export class Agent {
     private errorRate: number;
     private readonly belief: BeliefState[];
     private readonly environment: Grid;
+    private readonly hmm: HiddenMarkovModel;
 
     /**
      * Constructor - initializes an agent in a partially observable environment (noisy sensors) with each of four location sensors (NSEW)
@@ -25,8 +26,8 @@ export class Agent {
 
         this.belief = this.initializeBeliefState();
 
-        const hmm = new HiddenMarkovModel();
-        hmm.initializeTransitionMatrix(environment.rows, environment.columns, environment.obstacles.length);
+        this.hmm = new HiddenMarkovModel(environment, this.errorRate);
+        // this.hmm.initializeTransitionMatrix(environment.rows, environment.columns, environment.obstacles.length);
         // console.log(hmm);
     }
 
@@ -38,16 +39,9 @@ export class Agent {
         const beliefState = [] as BeliefState[];
         const numSpaces = this.environment.rows * this.environment.columns - this.environment.obstacles.length;
 
-        for (let row = 0; row < this.environment.rows; row++) {
-            for (let col = 0; col < this.environment.columns; col++) {
-                const coordinate = [col, row] as Coordinate;
-                if (this.environment.hasObstacle(coordinate)) {
-                    beliefState.push({coordinate: coordinate, probability: 0});
-                } else {
-                    beliefState.push({coordinate: coordinate, probability: 1 / numSpaces});
-                }
-            }
-        }
+        this.environment.occupiableCoordinates.forEach(coord => {
+            beliefState.push({coordinate: coord, probability: 1 / numSpaces});
+        });
 
         return beliefState;
     }
@@ -72,5 +66,8 @@ export class Agent {
      */
     update(beliefState: BeliefState[], percept: SensorReading) {
         // todo: use hmm here to update belief state
+        // hmm
+        this.hmm.updateBeliefState(percept);
+
     }
 }
