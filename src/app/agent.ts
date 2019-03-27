@@ -11,7 +11,7 @@ export class Agent {
     }
 
     private errorRate: number;
-    private readonly belief: BeliefState[];
+    private belief: BeliefState[];
     private readonly environment: Grid;
     private readonly hmm: HiddenMarkovModel;
 
@@ -55,8 +55,30 @@ export class Agent {
     //     return
     // }
 
-    getPercept() {
+    getPercept(coordinate: Coordinate) {
+        const percept = this.environment.getTrueEnvironmentSensorReading(coordinate);
+        const northHasError = Math.floor(Math.random() * 101) <= this.errorRate * 100;
+        const southHasError = Math.floor(Math.random() * 101) <= this.errorRate * 100;
+        const eastHasError = Math.floor(Math.random() * 101) <= this.errorRate * 100;
+        const westHasError = Math.floor(Math.random() * 101) <= this.errorRate * 100;
 
+        if (northHasError) {
+            percept.north = !percept.north;
+        }
+
+        if (southHasError) {
+            percept.south = !percept.south;
+        }
+
+        if (eastHasError) {
+            percept.east = !percept.east;
+        }
+
+        if (westHasError) {
+            percept.west = !percept.west;
+        }
+
+        return percept;
     }
 
     /**
@@ -64,10 +86,18 @@ export class Agent {
      * given b is the initial belief state, o is the percept, then the new belief state is
      * b' = update(b, o)
      */
-    update(beliefState: BeliefState[], percept: SensorReading) {
+    update(percept: SensorReading) {
         // todo: use hmm here to update belief state
         // hmm
-        this.hmm.updateBeliefState(percept);
+        this.belief = this.toBeliefState(this.hmm.updateBeliefState(percept));
 
+
+    }
+
+    private toBeliefState(probabilities: number[]) {
+        return this.environment.occupiableCoordinates.map((coord, index) => {
+                return { coordinate: coord, probability: probabilities[index] } as BeliefState;
+            }
+        );
     }
 }

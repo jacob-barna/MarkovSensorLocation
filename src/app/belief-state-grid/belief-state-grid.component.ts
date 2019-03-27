@@ -58,9 +58,6 @@ export class BeliefStateGridComponent implements OnInit {
   // #endregion
 
 
-  // todo: temporary testing variable, remove
-  private counter = 0;
-
   constructor() { }
 
   // todo: after testing, remove iterate() method and finish implementation for getPreceptAndUpdateBeliefState
@@ -69,15 +66,23 @@ export class BeliefStateGridComponent implements OnInit {
   //   return
   // }
 
-  // todo: remove after model testing is complete
+  // todo: remove hardcoded timeslices after model testing is complete
   iterate() {
-    if (++this.counter === 1) {
-      this.agent.update(this.agent.beliefState, { north: true, south: true, east: false, west: true } as SensorReading);
+    if (this.timeSlice === 0) {
+      this.agent.update({ north: true, south: true, east: false, west: true } as SensorReading);
       this.beliefState = this.agent.beliefState;
-    }  else if (++this.counter === 2) {
-      this.agent.update(this.agent.beliefState, { north: true, south: true, east: false, west: false } as SensorReading);
+      this.timeSlice++;
+    }  else if (this.timeSlice === 1) {
+      this.agent.update({ north: true, south: true, east: false, west: false } as SensorReading);
       this.beliefState = this.agent.beliefState;
+      this.timeSlice++;
+    } else {
+      // todo: add movement for agent so we know where the agent is and can update percepts
+      // this.agent.update(this.agent.getPercept());
+      // this.beliefState = this.agent.beliefState;
     }
+
+    this.drawGrid();
     // todo: when done testing, replace hardcoded percept with random
     // this.beliefState = this.agent.update(this.agent.beliefState, this.agent.getPercept());
   }
@@ -149,7 +154,7 @@ export class BeliefStateGridComponent implements OnInit {
     const [x, y] = gridCoordinate;
 
     if (beliefState) {
-      this.title = `[${x}, ${y}]: ${beliefState.probability.toString()}%`;
+      this.title = `[${x}, ${y}]: ${(beliefState.probability * 100).toString()}%`;
     } else {
       this.title = `[${x}, ${y}]: 0%`;
     }
@@ -171,7 +176,7 @@ export class BeliefStateGridComponent implements OnInit {
         const y = this.startYCoordinate + row * this.boxWidthPixels;
 
         // current (real) coordinate of the agent outlined in yellow
-        this.checkAndMarkRealPosition([col, row]);
+       // this.checkAndMarkRealPosition([col, row]);
 
         this.ctx.strokeRect(
           x,
@@ -203,14 +208,22 @@ export class BeliefStateGridComponent implements OnInit {
   private getArcRadius(probability: number) {
     if (probability === 0) {
       return 0;
-    } else if (probability <= 20) {
-      return 4;
-    } else if (probability <= 40) {
+    } else if (probability <= .01) {
+      return 2;
+    } else if (probability <= .03) {
+      return 3;
+    } else if (probability <= .05) {
+      return 5;
+    } else if (probability <= .07) {
       return 7;
-    } else if (probability <= 60) {
-      return 10;
-    } else if (probability <= 80) {
+    } else if (probability <= .10) {
+      return 9;
+    } else if (probability <= .25) {
+      return 11;
+    } else if (probability <= .6) {
       return 13;
+    } else if (probability <= .80) {
+      return 15;
     } else {
       return 16;
     }

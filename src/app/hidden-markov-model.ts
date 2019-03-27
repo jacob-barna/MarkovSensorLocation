@@ -15,7 +15,7 @@ export class HiddenMarkovModel {
         this.numberOfStates = environment.rows * environment.columns - environment.obstacles.length;
         this.errorRate = sensorErrorRate;
         this.environment = environment;
-        this.initializeTransitionMatrix(environment.rows, environment.columns, environment.obstacles.length);
+        this.initializeTransitionMatrix();
         this.forwardMessage = this.createInitialForwardMessage();
     }
 
@@ -38,12 +38,17 @@ export class HiddenMarkovModel {
     // forwardMessage f_1:t+1 = αO_t+1T^Tf_1:t
     public updateBeliefState(sensorReading: SensorReading) {
        this.initializeSensorMatrix(sensorReading);
-       // console.log(this.sensorMatrix);
+        console.log(this.sensorMatrix);
+
+        console.log('transition:');
+       console.log(this.transitionMatrix);
         const transposed
         = math.transpose(this.transitionMatrix);
-       // console.log(transposed);
+        console.log('transpose');
+        console.log(transposed);
 
         const forward = math.multiply(this.sensorMatrix, transposed);
+        console.log(this.forwardMessage);
         console.log(math.multiply(forward, this.forwardMessage));
         const forwardMessage = (math.multiply(forward, this.forwardMessage) as math.Matrix).toArray() as number[];
 
@@ -52,7 +57,7 @@ export class HiddenMarkovModel {
         // console.log(this.normalizeVectorSoftmax(forwardMessage).reduce((agg, num) => agg + num, 0));
         console.log(this.normalizeVector(forwardMessage));
 
-
+        return this.normalizeVector(forwardMessage);
     }
 
     /**
@@ -62,7 +67,7 @@ export class HiddenMarkovModel {
         const sensorReadings: SensorReading[] = [];
         // there are S=42 states (locations) if you ignore the obstacles
         this.environment.occupiableCoordinates.forEach(coord => {
-            sensorReadings.push(this.getTrueEnvironmentSensorReading(coord));
+            sensorReadings.push(this.environment.getTrueEnvironmentSensorReading(coord));
         });
 
         return sensorReadings;
@@ -104,32 +109,6 @@ export class HiddenMarkovModel {
             const distance = this.getHammingDistance(reading, givenReading);
             return Math.pow((1 - this.errorRate), 4 - distance) * Math.pow(this.errorRate, distance);
         });
-    }
-
-    /**
-     * Returns the actual obstacle sensor readings from the environment
-     * @param coordinate The location on the grid
-     */
-    private getTrueEnvironmentSensorReading(coordinate: Coordinate) {
-        const [x, y] = coordinate;
-        const sensorReading = { north: false, south: false, east: false, west: false };
-        if (this.environment.isFirstColumn(coordinate) || this.environment.hasObstacle([x - 1, y])) {
-            sensorReading.west = true;
-        }
-
-        if (this.environment.isLastColumn(coordinate) || this.environment.hasObstacle([x + 1, y])) {
-            sensorReading.east = true;
-        }
-
-        if (this.environment.isFirstRow(coordinate) || this.environment.hasObstacle([x, y - 1])) {
-            sensorReading.north = true;
-        }
-
-        if (this.environment.isLastRow(coordinate) || this.environment.hasObstacle([x + 1, y])) {
-            sensorReading.south = true;
-        }
-
-        return sensorReading;
     }
 
     /**
@@ -187,13 +166,22 @@ export class HiddenMarkovModel {
      * @param numberOfObstacles the number of obstacles in the grid
      * (these are not part of the transition matrix (prob. distribution) as we cannot move to them)
      */
-    private initializeTransitionMatrix(rows: number, columns: number, numberOfObstacles: number) {
+    private initializeTransitionMatrix() {
         const matrix: number [][] = [];
+
+        // the states are occupiable locations, we need the coordinates
+        // to get neighbors
+        const coords = this.environment.occupiableCoordinates;
 
         for (let row = 0; row < this.numberOfStates; row++) {
             matrix[row] = [];
+            const currentCoord = coords[row];
+            const neighbors = this.environment.getNeighbors(currentCoord);
+            // console.log(neighbors);
             for (let col = 0; col < this.numberOfStates; col++) {
-                    matrix[row][col] = 1 / this.numberOfStates;
+                    const [x, y] = coords[col];
+                    const isNeighbor = neighbors.some(([xpos, ypos]) => x === xpos && y === ypos);
+                    matrix[row][col] = isNeighbor ? 1 / neighbors.length : 0;
             }
         }
 
