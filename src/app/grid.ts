@@ -46,8 +46,6 @@ export class Grid {
         const neighbors = [] as Coordinate[];
         const [x, y] = coord;
 
-        // neighbors.push([x, y]);
-
         // add north
         if (!isFirstRow && !this.hasObstacle([x, y - 1])) {
             neighbors.push([x, y - 1]);

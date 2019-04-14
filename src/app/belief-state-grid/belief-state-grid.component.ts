@@ -1,4 +1,4 @@
-import { Component, OnInit, ElementRef, ViewChild } from '@angular/core';
+import { Component, OnInit, ElementRef, ViewChild, Input } from '@angular/core';
 import { BeliefState } from '../models/belief-state';
 import { Coordinate } from '../models/coordinate';
 import { Subject } from 'rxjs';
@@ -7,6 +7,7 @@ import { CoordinateMapping } from '../models/coordinate-mapping';
 import { Agent } from '../agent';
 import { Grid } from '../grid';
 import { SensorReading } from '../models/sensor-reading';
+import { Direction } from '../models/direction';
 
 
 @Component({
@@ -16,81 +17,94 @@ import { SensorReading } from '../models/sensor-reading';
 })
 export class BeliefStateGridComponent implements OnInit {
   @ViewChild('agentBeliefState') beliefStateRef: ElementRef;
-
+  simulationDataString = '';
   // todo: clean this up, make it a real component... use getters / setters or @Input where applicable,
   // #region public properties
   browserOffset = 8;
   boxWidthPixels = 50;
   boxHeightPixels = 50;
-  // columns = 16;
+  directionUp = Direction.Up;
+  directionLeft = Direction.Left;
+  directionRight = Direction.Right;
+  directionDown = Direction.Down;
+  grid: Grid;
   lineWidthPixels = 2;
-  // numberOfObstacles = 22;
-  obstacleLocations: Coordinate[] = [[0, 1], [0, 2], [1, 1], [2, 3],
-  [4, 0], [4, 1], [4, 2], [6, 1],
-  [6, 2], [6, 3], [7, 1], [7, 2],
-  [9, 1], [10, 0], [11, 1], [11, 3],
-  [13, 1], [13, 2], [14, 0], [14, 1],
-  [14, 2], [15, 1]];
-  // rows = 4;
+  percepts: SensorReading[] = [];
+  perceivedLocation: Coordinate;
+  // obstacleLocations: Coordinate[] = [[0, 1], [0, 2], [1, 1], [2, 3],
+  // [4, 0], [4, 1], [4, 2], [6, 1],
+  // [6, 2], [6, 3], [7, 1], [7, 2],
+  // [9, 1], [10, 0], [11, 1], [11, 3],
+  // [13, 1], [13, 2], [14, 0], [14, 1],
+  // [14, 2], [15, 1]];
+  obstacleLocations: Coordinate[] = [];
   startXCoordinate = 25;
   startYCoordinate = 25;
   title = '';
 
-  agentCurrentPosition = [0, 0];
+  agentCurrentPosition: Array<Coordinate> = [];
   timeSlice = 0;
   // #endregion
 
-  // todo: standardize on private variables having prefix _
   // #region private properties
   private agent: Agent;
   private $mouseMoveEvents: Subject<CoordinateMapping> = new Subject<CoordinateMapping>();
-  private beliefState: BeliefState[];
-  // = [
-  //   {coordinate: [1, 0], probability: 81},
-  //   {coordinate: [2, 0], probability: 61},
-  //   {coordinate: [3, 0], probability: 41},
-  //   {coordinate: [5, 0], probability: 21},
-  //   {coordinate: [6, 0], probability: 1},
-  //   {coordinate: [7, 0], probability: 0}];
+  private beliefState: Array<BeliefState[]>;  // = [
   private ctx: CanvasRenderingContext2D;
-  private grid: Grid;
   private gridCells: CoordinateMapping[] = [];
+   simulationData = [];
   // #endregion
 
 
   constructor() { }
 
-  // todo: after testing, remove iterate() method and finish implementation for getPreceptAndUpdateBeliefState
-  // getPreceptAndUpdateBeliefState() {
-  //   const precept = this.agent.getPrecept();
-  //   return
-  // }
+  isOpenCoordinate(direction: Direction) {
+    const [x, y] = this.getMoveCoordinate(direction, this.agentCurrentPosition[this.timeSlice]);
+    return this.grid.occupiableCoordinates.some(([xpos, ypos]) => x === xpos && y === ypos);
+  }
 
-  // todo: remove hardcoded timeslices after model testing is complete
-  iterate() {
-    if (this.timeSlice === 0) {
-      this.agent.update({ north: true, south: true, east: false, west: true } as SensorReading);
-      this.beliefState = this.agent.beliefState;
-      this.timeSlice++;
-    }  else if (this.timeSlice === 1) {
-      this.agent.update({ north: true, south: true, east: false, west: false } as SensorReading);
-      this.beliefState = this.agent.beliefState;
-      this.timeSlice++;
-    } else {
-      // todo: add movement for agent so we know where the agent is and can update percepts
-      // this.agent.update(this.agent.getPercept());
-      // this.beliefState = this.agent.beliefState;
+  move(direction: Direction = null) {
+    let [x, y] = this.agentCurrentPosition[this.timeSlice];
+
+    if (typeof direction !== undefined && direction != null) {
+      [x, y] = this.getMoveCoordinate(direction, this.agentCurrentPosition[this.timeSlice]);
     }
 
+    this.timeSlice++;
+    this.agentCurrentPosition[this.timeSlice] = [x, y];
+    this.percepts.push(this.agent.getPercept(this.agentCurrentPosition[this.timeSlice]));
+    this.agent.update(this.percepts[this.timeSlice]);
+    this.beliefState.push(this.agent.beliefState);
+    this.updatePerceivedLocation();
     this.drawGrid();
-    // todo: when done testing, replace hardcoded percept with random
-    // this.beliefState = this.agent.update(this.agent.beliefState, this.agent.getPercept());
+
+    this.simulationData.push(this.getManhattanDistance(this.perceivedLocation, this.agentCurrentPosition[this.timeSlice]));
+  }
+
+  updatePerceivedLocation() {
+    const highestProbability = Math.max(...this.beliefState[this.timeSlice].map(b => b.probability));
+    // get the first with that probability (no tie breakers or random choice)
+    const perceivedLocation = this.beliefState[this.timeSlice].find(b => b.probability === highestProbability);
+    this.perceivedLocation = perceivedLocation ? perceivedLocation.coordinate : undefined;
+  }
+
+  // if perceived location p=(p1,p2) and the true location is point q=(q1,q2),
+  // then the localization error is defined as: |p1−𝑞1|+|𝑝2−𝑞2|.
+  getManhattanDistance(perceivedCoord: Coordinate, trueCoord: Coordinate) {
+    const [p1, p2] = perceivedCoord;
+    const [q1, q2] = trueCoord;
+
+    return Math.abs(p1 - q1) + Math.abs(p2 - q2);
   }
 
   ngOnInit() {
-    this.grid = new Grid(16, 4, this.obstacleLocations);
+    this.percepts.push(null); // percepts do not begin until timeslice 1
+    this.agentCurrentPosition.push([0, 0]);
+    // this.grid = new Grid(16, 4, this.obstacleLocations);
+    this.grid = new Grid(64, 1, this.obstacleLocations);
     this.agent = new Agent(0.20, this.grid);
-    this.beliefState = this.agent.beliefState;
+    this.beliefState = [];
+    this.beliefState.push(this.agent.beliefState);
     this.drawGrid();
 
     this.$mouseMoveEvents.pipe(
@@ -115,6 +129,95 @@ export class BeliefStateGridComponent implements OnInit {
   onMouseMove(event: MouseEvent) {
     this.$mouseMoveEvents.next({gridCoordinate: this.getCoordinateFromMousePosition(event.clientX, event.clientY),
        mouseCoordinate: [event.clientX, event.clientY]});
+  }
+
+  /** move 40 times, record the localization error at each step.  Average localization error at each step over 400 runs */
+  runSimulation() {
+      this.simulationData = [];
+      this.move(this.directionRight);
+      this.move(this.directionRight);
+      this.move(this.directionRight);
+      this.move(this.directionLeft);
+      this.move(this.directionLeft);
+      this.move(this.directionLeft);
+      this.move(this.directionRight);
+      this.move(this.directionRight);
+      this.move(this.directionRight);
+      this.move(this.directionRight);
+      this.move(this.directionRight);
+      this.move(this.directionRight);
+      this.move(this.directionRight);
+      this.move(this.directionRight);
+      this.move(this.directionRight);
+      this.move(this.directionRight);
+      this.move(this.directionRight);
+      this.move(this.directionRight);
+      this.move(this.directionLeft);
+      this.move(this.directionLeft);
+      this.move(this.directionLeft);
+      this.move(this.directionRight);
+      this.move(this.directionRight);
+      this.move(this.directionRight);
+      this.move(this.directionLeft);
+      this.move(this.directionLeft);
+      this.move(this.directionLeft);
+      this.move(this.directionLeft);
+      this.move(this.directionLeft);
+      this.move(this.directionLeft);
+      this.move(this.directionRight);
+      this.move(this.directionRight);
+      this.move(this.directionRight);
+      this.move(this.directionRight);
+      this.move(this.directionRight);
+      this.move(this.directionRight);
+      this.move(this.directionRight);
+      this.move(this.directionRight);
+      this.move(this.directionRight);
+      this.move(this.directionLeft);
+
+      //simulation 1
+      // this.move(this.directionDown);
+      // this.move(this.directionDown);
+      // this.move(this.directionDown);
+      // this.move(this.directionRight);
+      // this.move(this.directionRight);
+      // this.move(this.directionUp);
+      // this.move(this.directionUp);
+      // this.move(this.directionUp);
+      // this.move(this.directionRight);
+      // this.move(this.directionRight);
+      // this.move(this.directionRight);
+      // this.move(this.directionDown);
+      // this.move(this.directionDown);
+      // this.move(this.directionDown);
+      // this.move(this.directionRight);
+      // this.move(this.directionRight);
+      // this.move(this.directionUp);
+      // this.move(this.directionRight);
+      // this.move(this.directionRight);
+      // this.move(this.directionDown);
+      // this.move(this.directionRight);
+      // this.move(this.directionRight);
+      // this.move(this.directionRight);
+      // this.move(this.directionUp);
+      // this.move(this.directionDown);
+      // this.move(this.directionLeft);
+      // this.move(this.directionLeft);
+      // this.move(this.directionLeft);
+      // this.move(this.directionUp);
+      // this.move(this.directionUp);
+      // this.move(this.directionUp);
+      // this.move(this.directionRight);
+      // this.move(this.directionLeft);
+      // this.move(this.directionDown);
+      // this.move(this.directionDown);
+      // this.move(this.directionLeft);
+      // this.move(this.directionLeft);
+
+    // console.log(this.simulationData);
+    // for (let j = 0; j < this.simulationData.length; j++) {
+    //   this.simulationDataString += this.simulationData[j] ;
+    // }
   }
 
   private addBeliefState(ctx: CanvasRenderingContext2D, coord: Coordinate) {
@@ -145,6 +248,7 @@ export class BeliefStateGridComponent implements OnInit {
     }
   }
 
+  /** Does not work unless the scrollbar is at the top */
   private displayTooltip(gridCoordinate: Coordinate) {
     if (!gridCoordinate) {
       return;
@@ -176,7 +280,7 @@ export class BeliefStateGridComponent implements OnInit {
         const y = this.startYCoordinate + row * this.boxWidthPixels;
 
         // current (real) coordinate of the agent outlined in yellow
-       // this.checkAndMarkRealPosition([col, row]);
+       this.checkAndMarkRealPosition([col, row]);
 
         this.ctx.strokeRect(
           x,
@@ -194,14 +298,9 @@ export class BeliefStateGridComponent implements OnInit {
   }
 
   private checkAndMarkRealPosition([col, row]: Coordinate) {
-    const [currentCol, currentRow] = this.agentCurrentPosition;
+    const [currentCol, currentRow] = this.agentCurrentPosition[this.timeSlice];
     if (currentCol === col && currentRow === row) {
-      this.ctx.fillStyle = 'yellow';
-      this.ctx.fillRect(
-        this.startXCoordinate + this.lineWidthPixels / 2 + col * this.boxWidthPixels,
-        this.startYCoordinate + this.lineWidthPixels / 2 + row * this.boxWidthPixels,
-        this.boxWidthPixels - this.lineWidthPixels,
-        this.boxHeightPixels - this.lineWidthPixels);
+      this.markRealPosition([col, row]);
     }
   }
 
@@ -230,12 +329,13 @@ export class BeliefStateGridComponent implements OnInit {
   }
 
   private getBeliefState([x, y]: Coordinate) {
-    return this.beliefState.find(item => {
+    return this.beliefState[this.timeSlice].find(item => {
       const [xpos, ypos] = item.coordinate;
       return x === xpos && y === ypos;
     });
   }
 
+  /** Note: this only works if the grid is at the top, no scroll, etc. "good enough" to gather results. */
   private getCoordinateFromMousePosition(x: number, y: number): Coordinate {
     const cell = this.gridCells.find((mapping) => {
       const [mouseX, mouseY] = mapping.mouseCoordinate;
@@ -243,5 +343,28 @@ export class BeliefStateGridComponent implements OnInit {
     });
 
     return cell ? cell.gridCoordinate : undefined;
+  }
+
+  private getMoveCoordinate(direction: Direction, [x, y]: Coordinate) {
+    if (direction === Direction.Up) {
+      y--;
+    } else if (direction === Direction.Down) {
+      y++;
+    } else if (direction === Direction.Left) {
+      x--;
+    } else {
+      x++;
+    }
+
+    return [x, y];
+  }
+
+  private markRealPosition([col, row]: Coordinate) {
+    this.ctx.fillStyle = 'yellow';
+    this.ctx.fillRect(
+      this.startXCoordinate + this.lineWidthPixels / 2 + col * this.boxWidthPixels,
+      this.startYCoordinate + this.lineWidthPixels / 2 + row * this.boxWidthPixels,
+      this.boxWidthPixels - this.lineWidthPixels,
+      this.boxHeightPixels - this.lineWidthPixels);
   }
 }

@@ -27,8 +27,6 @@ export class Agent {
         this.belief = this.initializeBeliefState();
 
         this.hmm = new HiddenMarkovModel(environment, this.errorRate);
-        // this.hmm.initializeTransitionMatrix(environment.rows, environment.columns, environment.obstacles.length);
-        // console.log(hmm);
     }
 
     /**
@@ -45,15 +43,6 @@ export class Agent {
 
         return beliefState;
     }
-
-    /**
-     * The agent moves to any of it's neighbors with equal chance
-     * P(X_t+1=j | X_t = i) = (1/N(i) if j in Neighbors(i) else 0)
-     * @param currentLocation true location of the agent
-     */
-    // predict(currentLocation: Coordinate) {
-    //     return
-    // }
 
     getPercept(coordinate: Coordinate) {
         const percept = this.environment.getTrueEnvironmentSensorReading(coordinate);

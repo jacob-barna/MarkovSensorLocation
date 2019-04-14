@@ -1,7 +1,34 @@
+
 <canvas #agentBeliefState appTooltip (mousemove)="onMouseMove($event)" [title]="title">
 </canvas>
 
-Time Slice: {{ timeSlice }}
-<!-- <label for="errorRate">Error Rate:</label>
-<input id="errorRate" type="text"> -->
-<button (click)="iterate()">Next --></button>
+<p class="marginLeft">
+Time Slice: {{ timeSlice }} <br />
+Highest Probability Location: {{ perceivedLocation ? perceivedLocation : '' }} <br />
+True Location: {{ agentCurrentPosition[timeSlice] }} <br />
+Localization Error: {{ perceivedLocation ? getManhattanDistance(perceivedLocation, agentCurrentPosition[timeSlice]) : '' }} <br />
+</p>
+<!-- Navigation -->
+<table class="marginLeft">
+    <tr>
+      <td></td><td><button [disabled]="!isOpenCoordinate(directionUp)" (click)="move(directionUp)">&#8593;</button></td><td></td>
+    </tr>
+    <tr>
+      <td><button [disabled]="!isOpenCoordinate(directionLeft)" (click)="move(directionLeft)">&#8592;</button></td><td><button (click)="move()">&#9632;</button></td><td><button [disabled]="!isOpenCoordinate(directionRight)" (click)="move(directionRight)">&#8594;</button></td>
+    </tr>
+    <tr>
+      <td></td><td><button [disabled]="!isOpenCoordinate(directionDown)" (click)="move(directionDown)">&#8595;</button></td><td></td>
+    </tr>
+  </table>
+
+
+<p class="marginLeft">
+Percept: <br />
+North: {{ percepts[timeSlice] ? percepts[timeSlice].north : '' }} <br />
+South: {{ percepts[timeSlice] ? percepts[timeSlice].south : '' }} <br />
+East: {{ percepts[timeSlice] ? percepts[timeSlice].east : '' }} <br />
+West: {{ percepts[timeSlice] ? percepts[timeSlice].west : '' }} <br />
+</p>
+<button (click)="runSimulation()">Run sim</button>
+simulation data: 
+  <div *ngFor="let s of simulationData">{{s}}<br /></div>

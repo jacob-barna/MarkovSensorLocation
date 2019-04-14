@@ -1,5 +1,4 @@
 import * as math from 'mathjs';
-import { Coordinate } from './models/coordinate';
 import { SensorReading } from './models/sensor-reading';
 import { Grid } from './grid';
 
@@ -38,26 +37,15 @@ export class HiddenMarkovModel {
     // forwardMessage f_1:t+1 = αO_t+1T^Tf_1:t
     public updateBeliefState(sensorReading: SensorReading) {
        this.initializeSensorMatrix(sensorReading);
-        console.log(this.sensorMatrix);
 
-        console.log('transition:');
-       console.log(this.transitionMatrix);
         const transposed
         = math.transpose(this.transitionMatrix);
-        console.log('transpose');
-        console.log(transposed);
 
         const forward = math.multiply(this.sensorMatrix, transposed);
-        console.log(this.forwardMessage);
-        console.log(math.multiply(forward, this.forwardMessage));
         const forwardMessage = (math.multiply(forward, this.forwardMessage) as math.Matrix).toArray() as number[];
 
-        console.log(forwardMessage);
-        console.log('normalized vector');
-        // console.log(this.normalizeVectorSoftmax(forwardMessage).reduce((agg, num) => agg + num, 0));
-        console.log(this.normalizeVector(forwardMessage));
-
-        return this.normalizeVector(forwardMessage);
+        this.forwardMessage = this.normalizeVector(forwardMessage);
+        return this.forwardMessage;
     }
 
     /**
@@ -177,7 +165,6 @@ export class HiddenMarkovModel {
             matrix[row] = [];
             const currentCoord = coords[row];
             const neighbors = this.environment.getNeighbors(currentCoord);
-            // console.log(neighbors);
             for (let col = 0; col < this.numberOfStates; col++) {
                     const [x, y] = coords[col];
                     const isNeighbor = neighbors.some(([xpos, ypos]) => x === xpos && y === ypos);
@@ -192,22 +179,7 @@ export class HiddenMarkovModel {
     private normalizeVector(vector: number[]) {
         const sum = vector.reduce((agg, num) => agg + num, 0);
         const normalizedVector = vector.map(num => num / sum);
-        console.log(normalizedVector.reduce((agg, num) => agg + num, 0));
         return normalizedVector;
 
     }
-
-    /** note: this does "good enough" for this project, floating point may not add up to 1.0 */
-    // private normalizeVectorSoftmax(vector: number[]) {
-    //     const C = Math.max(...vector);
-    //     const d = vector.map((y) => Math.exp(y - C)).reduce((a, b) => a + b);
-    //     return vector.map(value => {
-    //         return Math.exp(value - C) / d;
-    //     });
-    // }
-    // private normalizeVectorSoftmax(vector: number[]) {
-    //     return vector.map(val => {
-    //         return Math.exp(val) / vector.map(y => Math.exp(y)).reduce((a, b) => a + b);
-    //     });
-    // }
 }
