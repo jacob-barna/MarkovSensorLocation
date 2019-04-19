@@ -31,13 +31,13 @@ export class BeliefStateGridComponent implements OnInit {
   lineWidthPixels = 2;
   percepts: SensorReading[] = [];
   perceivedLocation: Coordinate;
-  // obstacleLocations: Coordinate[] = [[0, 1], [0, 2], [1, 1], [2, 3],
-  // [4, 0], [4, 1], [4, 2], [6, 1],
-  // [6, 2], [6, 3], [7, 1], [7, 2],
-  // [9, 1], [10, 0], [11, 1], [11, 3],
-  // [13, 1], [13, 2], [14, 0], [14, 1],
-  // [14, 2], [15, 1]];
-  obstacleLocations: Coordinate[] = [];
+  obstacleLocations: Coordinate[] = [[0, 1], [0, 2], [1, 1], [2, 3],
+  [4, 0], [4, 1], [4, 2], [6, 1],
+  [6, 2], [6, 3], [7, 1], [7, 2],
+  [9, 1], [10, 0], [11, 1], [11, 3],
+  [13, 1], [13, 2], [14, 0], [14, 1],
+  [14, 2], [15, 1]];
+  //obstacleLocations: Coordinate[] = [];
   startXCoordinate = 25;
   startYCoordinate = 25;
   title = '';
@@ -66,7 +66,7 @@ export class BeliefStateGridComponent implements OnInit {
   move(direction: Direction = null) {
     let [x, y] = this.agentCurrentPosition[this.timeSlice];
 
-    if (typeof direction !== undefined && direction != null) {
+    if (typeof direction !== undefined && direction != null && this.isOpenCoordinate(direction)) {
       [x, y] = this.getMoveCoordinate(direction, this.agentCurrentPosition[this.timeSlice]);
     }
 
@@ -100,8 +100,8 @@ export class BeliefStateGridComponent implements OnInit {
   ngOnInit() {
     this.percepts.push(null); // percepts do not begin until timeslice 1
     this.agentCurrentPosition.push([0, 0]);
-    // this.grid = new Grid(16, 4, this.obstacleLocations);
-    this.grid = new Grid(64, 1, this.obstacleLocations);
+    // this.grid = new Grid(64, 1, this.obstacleLocations);
+    this.grid = new Grid(16, 4, this.obstacleLocations);
     this.agent = new Agent(0.20, this.grid);
     this.beliefState = [];
     this.beliefState.push(this.agent.beliefState);
@@ -175,7 +175,10 @@ export class BeliefStateGridComponent implements OnInit {
       this.move(this.directionRight);
       this.move(this.directionLeft);
 
-      //simulation 1
+      // simulation 1
+      // this.move(this.directionRight);
+      // this.move(this.directionRight);
+      // this.move(this.directionRight);
       // this.move(this.directionDown);
       // this.move(this.directionDown);
       // this.move(this.directionDown);
